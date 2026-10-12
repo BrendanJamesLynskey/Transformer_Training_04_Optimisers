@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer Training 04 — Optimisers: SGD, Momentum, Adam, AdamW</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Source+Code+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f2027;
+            --bg-card: #13272f;
+            --bg-code: #182f38;
+            --text-primary: #ede7dd;
+            --text-secondary: #8ca5a9;
+            --accent: #83c395;
+            --accent-dim: #83c39544;
+            --accent-glow: #83c39533;
+            --border: #23404a;
+            --font-display: 'Sora', sans-serif;
+            --font-mono: 'Source Code Pro', 'Source Code Pro', monospace;
+            --font-body: 'Manrope', sans-serif;
+            --max-width: 900px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .hero > * { position: relative; z-index: 1; }
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        .hero h1 .accent { color: var(--accent); }
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin-bottom: 2rem;
+        }
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pipeline-arrow { color: var(--accent); font-size: 0.9rem; font-weight: 700; }
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .slide p { margin-bottom: 1rem; color: var(--text-secondary); }
+        .slide p strong { color: var(--text-primary); }
+        .slide ul, .slide ol { margin-bottom: 1rem; padding-left: 1.5rem; color: var(--text-secondary); }
+        .slide li { margin-bottom: 0.4rem; }
+        .slide li strong { color: var(--text-primary); }
+        .slide code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            color: #cfd7d1;
+        }
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(131,195,149,0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .code-block pre { margin: 0; padding: 1rem; overflow-x: auto; }
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #cfd7d1;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .kw { color: #f48f70; }
+        .fn { color: #d4c0ea; }
+        .str { color: #c3dbea; }
+        .cm { color: #8ca5a9; font-style: italic; }
+        .num { color: #a8cee8; }
+        .type { color: #eac48b; }
+        .dir { color: #f48f70; }
+        .mac { color: #eac48b; }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: rgba(19,39,47,0.5); }
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .diagram-box.accent { border-color: var(--accent); color: var(--accent); background: rgba(131,195,149,0.08); }
+        .diagram-box.dim { color: var(--text-secondary); border-color: var(--border); }
+        .diagram-arrow { color: var(--accent); font-size: 1.3rem; font-weight: 700; }
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-vertical .diagram-arrow { font-size: 1.1rem; }
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .hierarchy-level { display: flex; align-items: center; gap: 0.75rem; }
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+        .hierarchy-items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .hierarchy-item.accent { border-color: var(--accent); color: var(--accent); background: rgba(131,195,149,0.08); }
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .diagram-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .diagram-panel.accent-border { border-left: 3px solid var(--accent); }
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        .diagram-panel p, .diagram-panel ul { font-size: 0.85rem; }
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .callout p { margin-bottom: 0; }
+        .callout p + p { margin-top: 0.5rem; }
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+        .contents-list { list-style: none; padding-left: 0; counter-reset: contents; }
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .contents-list li:last-child { border-bottom: none; }
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+        .contents-list a { color: var(--text-primary); text-decoration: none; transition: color 0.2s; }
+        .contents-list a:hover { color: var(--accent); }
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas, .canvas-wrap svg { display: block; margin: 0 auto; max-width: 100%; }
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #eac48b; color: #eac48b; background: rgba(234,196,139,0.08); }
+        .badge.bad   { border-color: #f48f70; color: #f48f70; background: rgba(244,143,112,0.08); }
+        @media (max-width: 640px) {
+            .slide { padding: 3rem 1rem; min-height: auto; }
+            .slide-number { font-size: 3rem; top: 1.5rem; right: 1rem; }
+            .slide h2 { font-size: 1.5rem; }
+            .diagram-grid.cols-2, .diagram-grid.cols-3 { grid-template-columns: 1fr; }
+            .pipeline { gap: 0.15rem; }
+            .pipeline-step { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+            .hero h1 { font-size: 1.8rem; }
+            table { font-size: 0.78rem; }
+        }
+        .slide p a, .slide td a, .slide li a, .callout a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
+        .slide p a:hover, .slide td a:hover, .slide li a:hover, .callout a:hover { border-bottom-style: solid; }
+        .hero { overflow: hidden; }
+        .diagram-panel { min-width: 0; }
+        .metric-label .katex, .callout-label .katex, .series-label .katex,
+        .metric-label .katex *, .callout-label .katex * { text-transform: none; }
+        .canvas-wrap canvas { image-rendering: auto; }
+        .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; }
+        @media (max-width: 640px) { .katex-display { font-size: 0.8em; } }
+        .chart-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin: 1.25rem 0; }
+        .chart-wrap svg { display: block; width: 100%; height: auto; }
+        .chart-cap { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+        .live-link { font-family: var(--font-mono); font-size: 0.8rem; margin-top: 1rem; }
+        .widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1.25rem 0; }
+        .widget .row { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin-bottom: 0.6rem; }
+        .widget label { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); display: flex; gap: 0.5rem; align-items: center; }
+        .widget input[type=range] { width: 160px; max-width: 100%; accent-color: var(--accent); }
+        .widget select { background: var(--bg-code); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.4rem; font-family: var(--font-mono); font-size: 0.78rem; }
+        .widget button { background: var(--bg-code); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0.35rem 0.8rem; font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer; min-height: 36px; }
+        .widget button:hover { background: var(--accent-dim); }
+        .widget .out { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); }
+        .widget .cap { font-size: 0.82rem; color: var(--text-secondary); min-height: 2.6em; }
+        .widget svg { display: block; width: 100%; height: auto; }
+        .num-strong { color: var(--text-primary); font-weight: 600; }
+    /* deck-mobile-fix:hero */ .hero{overflow:hidden}@supports (overflow-x:clip){.hero{overflow:visible;overflow-x:clip}}
+    /* deck-mobile-fix:phone */ @media (max-width:640px){.diagram-box,.tier-fill,.section-divider>span,.action-btn{white-space:normal;overflow-wrap:anywhere}.diagram-grid>*,.diagram-panel,.diagram-box,.code-block,.callout,.metric,.control-group,.control-row>*,.pipeline-body,.roll-track>*,.tier-fill,.timeline-row>*{min-width:0;max-width:100%}p,li,a,code,td,th,.callout,.diagram-panel{overflow-wrap:break-word}pre{max-width:100%;overflow-x:auto}table{display:block;max-width:100%;overflow-x:auto}.katex-display,.bits,.canvas-wrap,.influence-map-wrapper,.timeline-track,div:has(>.bank-cell){max-width:100%;overflow-x:auto;overflow-y:hidden}select,input,img,video,iframe,.action-btn{max-width:100%}canvas{max-width:100%;height:auto}}
+            /* tt-charts */
+        .chart .plot-bg { fill: none; }
+        .chart .grid { stroke: var(--border); stroke-width: 1; }
+        .chart .axis { stroke: var(--text-secondary); stroke-width: 1; }
+        .chart .lbl { fill: var(--text-secondary); font-family: var(--font-mono); font-size: 12px; }
+        .chart .lbl.ax { fill: var(--text-primary); font-size: 12.5px; }
+        .chart .hline { stroke: var(--text-secondary); stroke-dasharray: 2 4; }
+        .chart .ln { fill: none; stroke-width: 2.2; }
+        .chart .eb { stroke-width: 1.4; }
+        .chart .legend-bg { fill: var(--bg-primary); stroke: var(--border); opacity: 0.92; }
+        .s1 { stroke: #56b4e9; fill: #56b4e9; } .s2 { stroke: #e69f00; fill: #e69f00; }
+        .s3 { stroke: #009e73; fill: #3fbf96; } .s4 { stroke: #cc79a7; fill: #cc79a7; }
+        .s5 { stroke: #f0e442; fill: #f0e442; } .s6 { stroke: #d55e00; fill: #d55e00; }
+        .s0 { stroke: var(--text-secondary); fill: var(--text-secondary); }
+        .ln { fill: none !important; }
+        .chart .bar { stroke: none; opacity: 0.85; }
+        .chart .lbl.inbar { fill: var(--bg-primary); font-weight: 600; }
+        @media (max-width: 640px) { .chart .lbl { font-size: 14px; } .chart .lbl.ax { font-size: 14px; } .wg-text, .wg-dim { font-size: 15px; } }
+        .wg-cell { fill: var(--bg-code); stroke: var(--border); }
+        .wg-text { fill: var(--text-primary); font-family: var(--font-mono); font-size: 13px; }
+        .wg-dim { fill: var(--text-secondary); font-family: var(--font-mono); font-size: 13px; }
+        .wg-hot { fill: #e69f00; } .wg-done { fill: #009e73; } .wg-cool { fill: #56b4e9; } .wg-idle { fill: var(--bg-code); stroke: var(--border); }
+        .wg-fwd { fill: #56b4e9; } .wg-bwd { fill: #e69f00; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false})"></script>
+</head>
+<body>
+<header class="hero">
+    <div class="series-label">Transformer Training &mdash; Presentation 04</div>
+    <h1>Optimisers: <span class="accent">SGD to AdamW</span></h1>
+    <p class="subtitle">The gradient says which way is downhill; the optimiser decides how far, and in which direction exactly. SGD, momentum, Adam's two moments and bias correction, AdamW's decoupled weight decay, run live on a narrow valley and measured on the real model.</p>
+
+    <div class="tags">
+        <span class="tag">SGD</span>
+        <span class="tag">Momentum</span>
+        <span class="tag">Adam</span>
+        <span class="tag">Bias correction</span>
+        <span class="tag">AdamW</span>
+        <span class="tag">Weight decay</span>
+        <span class="tag">Optimiser state</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">Gradient</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Moments</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Step size</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Decay</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Update</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We&rsquo;ll Cover</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">Four Optimisers in a Narrow Valley</a></li>
+        <li><a href="#slide-02">SGD: Straight Downhill</a></li>
+        <li><a href="#slide-03">Momentum: a Running Sum</a></li>
+        <li><a href="#slide-04">Adam: Two Moments per Weight</a></li>
+        <li><a href="#slide-05">AdamW: Decoupled Weight Decay</a></li>
+        <li><a href="#slide-06">On the Real Model</a></li>
+        <li><a href="#slide-07">The Learning Rate Matters More</a></li>
+        <li><a href="#slide-08">Optimiser State, and Newer Optimisers</a></li>
+        <li><a href="#slide-09">What to Take Away</a></li>
+    </ul>
+    <div class="callout">
+        <div class="callout-label">Live companion and sources</div>
+        <p>This deck follows <a href="https://transformer-decoder-explained.vercel.app/training/05-optimisers">chapter 5, optimisers</a>. Measured numbers: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md#5-optimisers-on-the-real-model-chapter-5">results.md &sect;5</a> (each optimiser checked against <code>torch.optim</code> over 25 steps, &sect;3). The valley below is computed live in this page.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>Four Optimisers in a Narrow Valley</h2>
+    <p>The valley \(f(x,y) = \tfrac12\big((x-2)^2 + 50\,(y-1)^2\big)\) is fifty times steeper across (\(y\)) than along (\(x\)); its minimum is at (2, 1). Real loss surfaces are full of such directions. All four start at (&minus;2, 2):</p>
+    <div class="widget" id="opt-widget">
+        <div class="row">
+            <button id="opt-play">play</button><button id="opt-step">step &#9654;</button><button id="opt-reset">reset</button>
+            <span class="out" id="opt-t"></span>
+        </div>
+        <svg id="opt-svg" viewBox="0 0 480 260" role="img" aria-label="Optimiser paths in a narrow valley"></svg>
+        <div class="cap" id="opt-cap" aria-live="polite"></div>
+        <div class="out" id="opt-legend" style="font-size:0.75rem"></div>
+    </div>
+    <script>
+    (function () {
+        const N = 80, grad = (x, y) => [x - 2, 50 * (y - 1)];
+        const cfg = [
+            { name: 'SGD, η 0.035', cls: 's0', kind: 'sgd', lr: 0.035 },
+            { name: 'momentum 0.9, η 0.01', cls: 's1', kind: 'mom', lr: 0.01 },
+            { name: 'Adam, η 0.1', cls: 's2', kind: 'adam', lr: 0.1 },
+            { name: 'AdamW, η 0.1, λ 0.5', cls: 's4', kind: 'adamw', lr: 0.1, wd: 0.5 },
+        ];
+        const runs = cfg.map(c => {
+            let x = -2, y = 2, b = [0, 0], m = [0, 0], v = [0, 0];
+            const path = [[x, y]], mv = [];
+            for (let t = 1; t <= N; t++) {
+                const g = grad(x, y);
+                if (c.kind === 'sgd') { x -= c.lr * g[0]; y -= c.lr * g[1]; }
+                else if (c.kind === 'mom') { b = [0.9 * b[0] + g[0], 0.9 * b[1] + g[1]]; if (t === 1) b = g.slice(); x -= c.lr * b[0]; y -= c.lr * b[1]; }
+                else {
+                    if (c.kind === 'adamw') { x *= 1 - c.lr * c.wd; y *= 1 - c.lr * c.wd; }
+                    m = [0.9 * m[0] + 0.1 * g[0], 0.9 * m[1] + 0.1 * g[1]];
+                    v = [0.999 * v[0] + 0.001 * g[0] ** 2, 0.999 * v[1] + 0.001 * g[1] ** 2];
+                    const mh = m.map(q => q / (1 - 0.9 ** t)), vh = v.map(q => q / (1 - 0.999 ** t));
+                    x -= c.lr * mh[0] / (Math.sqrt(vh[0]) + 1e-8); y -= c.lr * mh[1] / (Math.sqrt(vh[1]) + 1e-8);
+                }
+                path.push([x, y]); mv.push([m.slice(), v.slice()]);
+            }
+            return { ...c, path, mv };
+        });
+        window.__optRuns = runs.map(r => ({ name: r.name, end: r.path[N] }));
+        const X = x => 30 + (x + 2.6) / 5.4 * 430, Y = y => 235 - (y - 0.0) / 2.4 * 215;
+        const svg = document.getElementById('opt-svg');
+        let bg = '';
+        for (const c of [0.5, 2, 5, 10, 20]) bg += '<ellipse cx="' + X(2) + '" cy="' + Y(1) + '" rx="' + (Math.sqrt(2 * c) / 5.4 * 430) + '" ry="' + (Math.sqrt(2 * c / 50) / 2.4 * 215) + '" fill="none" stroke="var(--border)"/>';
+        bg += '<circle cx="' + X(2) + '" cy="' + Y(1) + '" r="4" class="s5"/><text class="wg-dim" x="' + (X(2) + 8) + '" y="' + (Y(1) - 8) + '">minimum (2, 1)</text>';
+        bg += '<circle cx="' + X(0) + '" cy="' + Y(0) + '" r="3" class="s0"/><text class="wg-dim" x="' + (X(0) + 6) + '" y="' + (Y(0) - 6) + '">origin</text>';
+        svg.innerHTML = '<clipPath id="opt-clip"><rect x="0" y="0" width="480" height="260"/></clipPath><g clip-path="url(#opt-clip)">' + bg + '</g>' + runs.map((r, i) => '<path id="op' + i + '" class="ln ' + r.cls + '" stroke-width="2"/><circle id="oc' + i + '" r="4" class="' + r.cls + '"/>').join('');
+        document.getElementById('opt-legend').innerHTML = runs.map(r => '<svg viewBox="0 0 12 12" style="display:inline;width:12px;height:12px;vertical-align:-1px"><rect width="12" height="12" class="' + r.cls + '"/></svg> ' + r.name).join(' &nbsp; ');
+        let t = 0, timer = null;
+        const cap = document.getElementById('opt-cap'), tt = document.getElementById('opt-t');
+        function draw() {
+            runs.forEach((r, i) => {
+                document.getElementById('op' + i).setAttribute('d', r.path.slice(0, t + 1).map((p, k) => (k ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(''));
+                const p = r.path[t]; const c = document.getElementById('oc' + i); c.setAttribute('cx', X(p[0])); c.setAttribute('cy', Y(p[1]));
+            });
+            tt.textContent = 'step ' + t + ' / ' + N;
+            const a = runs[2];
+            cap.textContent = t === 0 ? 'Step 0: all four at (−2, 2).' :
+                'Step ' + t + ': SGD at (' + runs[0].path[t].map(q => q.toFixed(2)).join(', ') + '); Adam\'s v is ' +
+                a.mv[t - 1][1][0].toExponential(1) + ' for x and ' + a.mv[t - 1][1][1].toExponential(1) + ' for y, so y\'s steps are scaled down.';
+        }
+        const stop = () => { clearInterval(timer); timer = null; document.getElementById('opt-play').textContent = 'play'; };
+        document.getElementById('opt-play').onclick = () => {
+            if (timer) return stop();
+            if (t >= N) t = 0;
+            document.getElementById('opt-play').textContent = 'pause';
+            timer = setInterval(() => { t++; draw(); if (t >= N) stop(); }, 90);
+        };
+        document.getElementById('opt-step').onclick = () => { stop(); t = Math.min(N, t + 1); draw(); };
+        document.getElementById('opt-reset').onclick = () => { stop(); t = 0; draw(); };
+        draw();
+    })();
+    </script>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>SGD: Straight Downhill</h2>
+    $$\theta_t = \theta_{t-1} - \eta\, g_t$$
+    <p><strong>Stochastic gradient descent</strong> steps by the <em>learning rate</em> \(\eta\) times the gradient. In the valley, \(\eta\) must be small enough not to overshoot across the steep walls: SGD is stable only for \(\eta &lt; 2/50 = 0.04\). It is then far too small for the gentle slope along the floor, where the error shrinks only by a factor \(1-\eta\) per step: SGD zig-zags across and crawls along.</p>
+    <div class="callout">
+        <div class="callout-label">The general lesson</div>
+        <p>The largest stable learning rate is set by the steepest direction (the largest curvature); progress is set by the shallowest. When curvatures differ by orders of magnitude, as they do in a transformer, one global step size cannot suit them all.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Momentum: a Running Sum</h2>
+    $$b_t = \mu\, b_{t-1} + g_t,\quad b_1 = g_1; \qquad \theta_t = \theta_{t-1} - \eta\, b_t$$
+    <p><strong>Momentum</strong> keeps a running sum of past gradients and steps along it. Across the valley, successive gradients point in opposite directions and cancel; along it, they agree and add up, so the optimiser builds speed where it is useful (\(\mu = 0.9\) is the usual default).</p>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>The momentum buffer is state</h4>
+            <p>One number per weight, carried from step to step: the first piece of <em>optimiser state</em> (Adam keeps two).</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>It matters for distributed training</h4>
+            <p>Methods that compress what workers exchange, such as DeMo, work on this buffer rather than on one step&rsquo;s gradient (<a href="https://brendanjameslynskey.github.io/Transformer_Training_12_Training_over_Slow_Links/">deck 12</a>).</p>
+        </div>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>Adam: Two Moments per Weight</h2>
+    $$\begin{gathered}m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t \\ v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2\end{gathered}$$
+    $$\begin{gathered}\theta_t = \theta_{t-1} - \eta\,\frac{\hat m_t}{\sqrt{\hat v_t} + \epsilon} \\ \hat m_t = \frac{m_t}{1-\beta_1^t},\qquad \hat v_t = \frac{v_t}{1-\beta_2^t}\end{gathered}$$
+    <p><strong>Adam</strong> (<a href="https://arxiv.org/abs/1412.6980">Kingma &amp; Ba 2014</a>) keeps, for every weight, a running mean \(m\) of the gradient (the first moment) and \(v\) of its square (the second moment: how large that weight&rsquo;s gradients usually are). Stepping by \(m/\sqrt v\), each coordinate moves by roughly the learning rate whatever the scale of its gradient: in the valley, \(v\) for \(y\) is far larger, so the steep and the gentle direction get similar step sizes.</p>
+    <p><strong>Bias correction</strong> divides by \(1-\beta^t\) because \(m\) and \(v\) start at zero and would be too small for the first steps. Near a minimum a constant-learning-rate Adam keeps taking steps of about \(\eta\) and jitters: one reason runs decay the learning rate at the end (deck 05). Defaults: \(\beta_1 = 0.9\), \(\beta_2 = 0.999\) (0.99 in the site&rsquo;s default run), \(\epsilon = 10^{-8}\).</p>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>AdamW: Decoupled Weight Decay</h2>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Adam + L2 (coupled)</h4>
+            <p>\(g_t \leftarrow g_t + \lambda\,\theta_{t-1}\) first. The decay then goes through the \(1/\sqrt v\) rescaling, so weights with large gradients are barely decayed at all.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>AdamW (decoupled)</h4>
+            <p>\(\theta_{t-1} \leftarrow (1 - \eta\lambda)\,\theta_{t-1}\) first, then the Adam step: the same decay for every weight (<a href="https://arxiv.org/abs/1711.05101">Loshchilov &amp; Hutter 2017</a>).</p>
+        </div>
+    </div>
+    <p>In the valley the decay pulls AdamW&rsquo;s end point towards the origin, away from the minimum of the loss alone: weight decay is a preference for small weights, traded against the loss. There \(\lambda = 0.5\) is set very high so that you can see it; the site&rsquo;s default run uses 0.01, applied only to the weight matrices, not to LayerNorm&rsquo;s \(\gamma, \beta\) or the biases. AdamW is the usual choice for large language models: Llama 3 405B was pretrained with it (<a href="https://arxiv.org/abs/2407.21783">Grattafiori et al. 2024, &sect;3.4.1</a>).</p>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>On the Real Model</h2>
+    <p>Part 1&rsquo;s model, each optimiser at three constant learning rates, 1,500 steps of 16 windows, clipping at 1.0, three data seeds each: final validation loss, mean &plusmn; standard deviation (results.md &sect;5).</p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Optimiser</th><th>Learning rate</th><th>Final validation loss</th><th>Best for it</th></tr></thead>
+            <tbody>
+                <tr><td>sgd</td><td>0.1</td><td>2.897 &plusmn; 0.005</td><td></td></tr>
+                <tr><td>sgd</td><td>0.3</td><td>2.374 &plusmn; 0.014</td><td></td></tr>
+                <tr><td>sgd</td><td>1</td><td>2.241 &plusmn; 0.034</td><td>best</td></tr>
+                <tr><td>momentum</td><td>0.03</td><td>2.342 &plusmn; 0.021</td><td></td></tr>
+                <tr><td>momentum</td><td>0.1</td><td>2.213 &plusmn; 0.008</td><td>best</td></tr>
+                <tr><td>momentum</td><td>0.3</td><td>2.253 &plusmn; 0.055</td><td></td></tr>
+                <tr><td>adam</td><td>0.003</td><td>2.310 &plusmn; 0.031</td><td></td></tr>
+                <tr><td>adam</td><td>0.01</td><td>2.185 &plusmn; 0.041</td><td>best</td></tr>
+                <tr><td>adam</td><td>0.03</td><td>2.301 &plusmn; 0.026</td><td></td></tr>
+                <tr><td>adamw</td><td>0.003</td><td>2.311 &plusmn; 0.038</td><td></td></tr>
+                <tr><td>adamw</td><td>0.01</td><td>2.230 &plusmn; 0.041</td><td>best</td></tr>
+                <tr><td>adamw</td><td>0.03</td><td>2.357 &plusmn; 0.029</td><td></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>At their best rates the four end close together, differences of about one standard deviation: at this scale the data say no more than that all four work.</p>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>The Learning Rate Matters More</h2>
+    <div class="chart-wrap"><svg class="chart" viewBox="0 0 480 190" role="img" aria-label="Final loss per optimiser at its best learning rate">
+<line class="grid" x1="150.0" x2="150.0" y1="18" y2="148"/>
+<text class="lbl" x="150.0" y="164" text-anchor="middle">2</text>
+<line class="grid" x1="226.0" x2="226.0" y1="18" y2="148"/>
+<text class="lbl" x="226.0" y="164" text-anchor="middle">2.25</text>
+<line class="grid" x1="302.0" x2="302.0" y1="18" y2="148"/>
+<text class="lbl" x="302.0" y="164" text-anchor="middle">2.5</text>
+<line class="grid" x1="378.0" x2="378.0" y1="18" y2="148"/>
+<text class="lbl" x="378.0" y="164" text-anchor="middle">2.75</text>
+<line class="grid" x1="454.0" x2="454.0" y1="18" y2="148"/>
+<text class="lbl" x="454.0" y="164" text-anchor="middle">3</text>
+<text class="lbl ax" x="302" y="184" text-anchor="middle">final validation loss (lower is better)</text>
+<text class="lbl" x="142" y="35" text-anchor="end">sgd, lr 1</text>
+<rect class="bar s0" x="150" y="22" width="73.1" height="17" rx="2"/>
+<text class="lbl" x="228.1" y="35">2.241 &plusmn; 0.034</text>
+<text class="lbl" x="142" y="61" text-anchor="end">momentum, lr 0.1</text>
+<rect class="bar s1" x="150" y="48" width="64.8" height="17" rx="2"/>
+<text class="lbl" x="219.8" y="61">2.213 &plusmn; 0.008</text>
+<text class="lbl" x="142" y="87" text-anchor="end">adam, lr 0.01</text>
+<rect class="bar s2" x="150" y="74" width="56.1" height="17" rx="2"/>
+<text class="lbl" x="211.1" y="87">2.185 &plusmn; 0.041</text>
+<text class="lbl" x="142" y="113" text-anchor="end">adamw, lr 0.01</text>
+<rect class="bar s4" x="150" y="100" width="69.9" height="17" rx="2"/>
+<text class="lbl" x="224.9" y="113">2.230 &plusmn; 0.041</text>
+<text class="lbl" x="142" y="139" text-anchor="end">sgd, lr 0.1</text>
+<rect class="bar s6" x="150" y="126" width="272.7" height="17" rx="2"/>
+<text class="lbl inbar" x="417.7" y="139" text-anchor="end">2.897 &plusmn; 0.005</text>
+<line class="axis" x1="150" x2="150" y1="18" y2="148"/>
+</svg><div class="chart-cap">Each optimiser at the best of its three learning rates, and SGD at its worst (results.md &sect;5). Bars start at 2.0.</div></div>
+    <p>SGD at 0.1 instead of 1.0 ends at 2.897, still on the plateau of deck 01. Choosing the optimiser moved the result by about one standard deviation; choosing its learning rate moved it by far more. Comparing optimisers fairly means <strong>tuning each one&rsquo;s learning rate</strong> and repeating over seeds (deck 05). Single runs are not enough: at the higher rates training is chaotic, and recomputing the same run on another computer moved its final loss by about 0.1.</p>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Optimiser State, and Newer Optimisers</h2>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>State costs memory</h4>
+            <p>SGD keeps nothing, momentum one number per weight, Adam and AdamW two. In FP32 that is 8 bytes per parameter for Adam&rsquo;s moments, the biggest single item of the 16 bytes per parameter of mixed-precision training (<a href="https://brendanjameslynskey.github.io/Transformer_Training_09_Memory/">deck 09</a>), and what ZeRO shards first (<a href="https://brendanjameslynskey.github.io/Transformer_Training_10_Data_Parallelism_and_ZeRO/">deck 10</a>).</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Newer optimisers (context, not measured here)</h4>
+            <ul>
+                <li>Lion keeps only the sign of a momentum (<a href="https://arxiv.org/abs/2302.06675">Chen et al. 2023</a>).</li>
+                <li>Shampoo (<a href="https://arxiv.org/abs/1802.09568">Gupta et al. 2018</a>) and SOAP (<a href="https://arxiv.org/abs/2409.11321">Vyas et al. 2024</a>) precondition each weight matrix with its gradient&rsquo;s row and column statistics.</li>
+                <li>Muon orthogonalises each matrix&rsquo;s momentum update (<a href="https://arxiv.org/abs/2502.16982">Liu et al. 2025</a> report it at scale).</li>
+            </ul>
+        </div>
+    </div>
+    <p>Each of the site&rsquo;s optimisers matches <code>torch.optim</code> over 25 steps on the model: largest difference 1.1e-16 for AdamW, 0 for SGD (results.md &sect;3).</p>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li><strong>SGD</strong>: step size limited by the steepest direction, progress by the shallowest.</li>
+        <li><strong>Momentum</strong>: a running sum that cancels across valleys and accumulates along them.</li>
+        <li><strong>Adam</strong>: per-weight step \(\eta\,\hat m/\sqrt{\hat v}\), with bias correction; two moments of state per weight.</li>
+        <li><strong>AdamW</strong>: weight decay applied directly, not through the gradient.</li>
+        <li>On the real model all four work at their best rates; <strong>the learning rate matters more than the optimiser</strong>.</li>
+    </ul>
+    <p class="live-link">Animated: <a href="https://transformer-decoder-explained.vercel.app/training/05-optimisers">chapter 5, optimisers</a> &middot; optimisation theory: <a href="https://github.com/BrendanJamesLynskey/MML_Hub">Mathematics for Machine Learning</a> &middot; next: <a href="https://brendanjameslynskey.github.io/Transformer_Training_05_Learning_Rate_and_Batch_Size/">deck 05, learning rate and batch size</a></p>
+</section>
+
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Training">Transformer Training series</a> &middot; live, animated companion: <a href="https://transformer-decoder-explained.vercel.app/training/05-optimisers">chapter 5, Optimisers</a> of <a href="https://transformer-decoder-explained.vercel.app/training">Transformer Decoder Explained, Part 2</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://brendanjameslynskey.github.io/Transformer_Training_03_Backpropagation/">&larr; 03 Backprop</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/LLM_Hub_Transformer_Training/">Series index</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/Transformer_Training_05_Learning_Rate_and_Batch_Size/">05 LR &amp; Batch &rarr;</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.75rem;">Measured numbers: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> (transformer-explainer @15b1c9f). Code on these slides is cut from that repository.</p>
+</footer>
+<script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+</body>
+</html>
