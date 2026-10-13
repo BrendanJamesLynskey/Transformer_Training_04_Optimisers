@@ -8,7 +8,7 @@ SGD in a narrow valley (live); momentum; Adam's moments and bias correction; Ada
 
 ## Live, animated companion
 
-This deck is the slide companion to Part 2 (Training) of [Transformer Decoder Explained](https://transformer-training-explained.vercel.app/training), where the same model trains in your browser:
+This deck is the slide companion to [Training](https://transformer-training-explained.vercel.app/training), the second site of the Foundations track (after Decoder), where the Decoder's model trains in your browser:
 
 - [Chapter 5: Optimisers](https://transformer-training-explained.vercel.app/training/05-optimisers)
 
